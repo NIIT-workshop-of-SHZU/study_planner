@@ -1,0 +1,59 @@
+# 服务器配置
+server:
+  port: 8080
+
+# Spring配置
+spring:
+  application:
+    name: study-planner
+  
+  # 数据库配置
+  datasource:
+    url: jdbc:mysql://localhost:3306/study_planner?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: "060322"  # MySQL密码
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  
+  # 静态资源配置
+  web:
+    resources:
+      static-locations: classpath:/static/
+  
+  # Session配置
+  session:
+    store-type: none
+    timeout: 30m
+
+# MyBatis配置
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.studyplanner.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# LLM API配置 (系统默认使用SiliconFlow)
+llm:
+  api:
+    # 系统提供的API配置（登录用户使用）
+    provider: siliconflow
+    base-url: https://api.siliconflow.cn/v1
+    api-key: sk-jkjpfyjbughuffoqsrrheaeraefcxotzcvtrbrbksacnptgo
+    model: Qwen/Qwen3-8B
+    max-tokens: 4096
+    temperature: 0.7
+    mock-mode: false  # 设为true使用模拟数据，false使用真实API
+    # 可选模型列表
+    available-models:
+      - Qwen/Qwen3-8B
+      - THUDM/GLM-4-9B-0414
+      - deepseek-ai/DeepSeek-V3
+      - deepseek-ai/DeepSeek-R1-0528
+
+# 日志配置
+logging:
+  level:
+    com.studyplanner: debug
+    org.springframework.web: info
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
