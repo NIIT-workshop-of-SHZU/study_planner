@@ -161,19 +161,18 @@ public class PlanService {
      * 删除计划
      */
     @Transactional
-    public void deletePlan(Long planId) {
+    public void deletePlan(Long planId, Long userId) {
+        StudyPlan plan = validatePlanOwner(planId, userId);
+        
         planDetailMapper.deleteByPlanId(planId);
-        planMapper.delete(planId);
+        planMapper.delete(plan.getId());
     }
     
     /**
      * 获取今日任务
      */
-    public PlanDetail getTodayTask(Long planId) {
-        StudyPlan plan = planMapper.findById(planId);
-        if (plan == null) {
-            return null;
-        }
+    public PlanDetail getTodayTask(Long planId, Long userId) {
+        StudyPlan plan = validatePlanOwner(planId, userId);
         
         // 计算今天是计划的第几天
         long dayNumber = LocalDate.now().toEpochDay() - plan.getStartDate().toEpochDay() + 1;
@@ -196,5 +195,21 @@ public class PlanService {
         
         int completed = planDetailMapper.countCompletedByPlanId(planId);
         return (double) completed / details.size() * 100;
+    }
+
+    /**
+     * 校验计划所有权
+     */
+    private StudyPlan validatePlanOwner(Long planId, Long userId) {
+        StudyPlan plan = planMapper.findById(planId);
+        if (plan == null) {
+            throw new IllegalArgumentException("计划不存在");
+        }
+
+        if (userId != null && !plan.getUserId().equals(userId)) {
+            throw new RuntimeException("无权访问该计划");
+        }
+
+        return plan;
     }
 }

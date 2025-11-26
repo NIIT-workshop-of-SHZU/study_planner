@@ -213,7 +213,12 @@
                 
                 // 加载今日任务
                 if (activePlans.length > 0) {
-                    loadTodayTask(activePlans[0].id);
+                    const params = new URLSearchParams(window.location.search);
+                    const requestedPlanId = params.get('planId');
+                    const targetPlan = requestedPlanId 
+                        ? (activePlans.find(p => String(p.id) === requestedPlanId) || activePlans[0])
+                        : activePlans[0];
+                    loadTodayTask(targetPlan.id);
                 } else {
                     document.getElementById('todayTaskContent').innerHTML = `
                         <p class="mb-0">暂无进行中的计划</p>

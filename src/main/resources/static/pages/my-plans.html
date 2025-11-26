@@ -118,9 +118,9 @@
                     <div class="col-md-3">
                         <select class="form-select" id="statusFilter">
                             <option value="">所有状态</option>
-                            <option value="active">进行中</option>
-                            <option value="completed">已完成</option>
-                            <option value="paused">已暂停</option>
+                            <option value="进行中">进行中</option>
+                            <option value="已完成">已完成</option>
+                            <option value="已暂停">已暂停</option>
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -300,20 +300,32 @@
             `;
         }
 
+        function normalizeStatusValue(status) {
+            if (!status) return '';
+            const map = {
+                'active': '进行中',
+                'completed': '已完成',
+                'paused': '已暂停'
+            };
+            return map[status] || status;
+        }
+
         function getStatusClass(status) {
-            switch(status) {
-                case 'active': return 'status-active';
-                case 'completed': return 'status-completed';
-                case 'paused': return 'status-paused';
+            const normalized = normalizeStatusValue(status);
+            switch(normalized) {
+                case '进行中': return 'status-active';
+                case '已完成': return 'status-completed';
+                case '已暂停': return 'status-paused';
                 default: return 'status-active';
             }
         }
 
         function getStatusText(status) {
-            switch(status) {
-                case 'active': return '进行中';
-                case 'completed': return '已完成';
-                case 'paused': return '已暂停';
+            const normalized = normalizeStatusValue(status);
+            switch(normalized) {
+                case '进行中': return '进行中';
+                case '已完成': return '已完成';
+                case '已暂停': return '已暂停';
                 default: return '进行中';
             }
         }
@@ -417,7 +429,7 @@
 
             // 状态过滤
             if (statusFilter) {
-                filtered = filtered.filter(plan => plan.status === statusFilter);
+                filtered = filtered.filter(plan => normalizeStatusValue(plan.status) === statusFilter);
             }
 
             // 排序
