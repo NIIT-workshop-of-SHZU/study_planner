@@ -119,6 +119,12 @@ mvn spring-boot:run
 
 ## 📝 开发日志 (Changelog)
 
+### 2025-11-28
+#### ♻️ 代码重构 (Refactor)
+- **前端分离**: 将前端重构为 Vue 版本，实现前后端分离架构
+- **资源清理**: 移除后端仓库中的旧版静态资源 (`dashboard.html`, `my-plans.html`)
+- **文档更新**: 在 README 中添加前端仓库链接
+
 ### 2025-11-26
 #### ✨ 新增特性 (Added)
 - 用户头像上传功能 (`POST /api/user/avatar`)
