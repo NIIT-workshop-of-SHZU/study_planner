@@ -3,6 +3,7 @@ package com.studyplanner;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * 智能学习计划生成器 - 启动类
@@ -10,6 +11,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  */
 @SpringBootApplication
 @MapperScan("com.studyplanner.mapper")
+@EnableScheduling  // 启用定时任务
 public class StudyPlannerApplication {
 
     public static void main(String[] args) {

@@ -27,6 +27,7 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS `chat_history`;
+DROP TABLE IF EXISTS `user_settings`;
 DROP TABLE IF EXISTS `check_in`;
 DROP TABLE IF EXISTS `plan_detail`;
 DROP TABLE IF EXISTS `study_plan`;
@@ -128,6 +129,21 @@ CREATE TABLE `chat_history` (
     KEY `idx_user_id` (`user_id`),
     CONSTRAINT `fk_chat_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI对话记录表';
+
+-- ============================================
+-- 6. 用户设置表 (user_settings)
+-- ============================================
+CREATE TABLE `user_settings` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '设置ID',
+    `user_id` BIGINT NOT NULL COMMENT '用户ID',
+    `inactive_minutes` INT DEFAULT 4320 COMMENT '闲置时间阈值（分钟），超过此时间未打卡算闲置，默认3天',
+    `reminder_interval_minutes` INT DEFAULT 720 COMMENT '提醒间隔（分钟），闲置后每隔多久提醒一次，默认12小时',
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_user_id` (`user_id`),
+    CONSTRAINT `fk_settings_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户设置表';
 
 -- ============================================
 -- 插入测试数据

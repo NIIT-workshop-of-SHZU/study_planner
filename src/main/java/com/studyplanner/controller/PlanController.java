@@ -217,7 +217,7 @@ public class PlanController {
 
         String title = request.get("title");
         String goal = request.get("goal");
-        
+
         try {
             planService.updatePlan(id, userId, title, goal);
             return ApiResponse.success("计划更新成功", null);

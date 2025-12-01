@@ -6,23 +6,41 @@ server:
 spring:
   application:
     name: study-planner
-  
+
   # 数据库配置
   datasource:
     url: jdbc:mysql://localhost:3306/study_planner?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: root
-    password: "123456"  # MySQL密码
+    password: "root" # MySQL密码
     driver-class-name: com.mysql.cj.jdbc.Driver
-  
+
   # 静态资源配置
   web:
     resources:
       static-locations: classpath:/static/
-  
+
   # Session配置
   session:
     store-type: none
     timeout: 30m
+
+  # 邮件配置（SMTP）- 取消注释并填写正确的配置即可启用邮件提醒
+  mail:
+    host: smtp.qq.com # QQ邮箱SMTP服务器，其他邮箱请修改
+    port: 587
+    username: 123456789@qq.com # 发送邮件的邮箱地址（请修改为你的邮箱）
+    password: 16位授权码 # 邮箱授权码（不是登录密码，请修改）
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
 # MyBatis配置
 mybatis:
@@ -38,11 +56,11 @@ llm:
     # 系统提供的API配置（登录用户使用）
     provider: siliconflow
     base-url: https://api.siliconflow.cn/v1
-    api-key: sk-jkjpfyjbughuffoqsrrheaeraefcxotzcvtrbrbksacnptgo
+    api-key: 你的apikey
     model: Qwen/Qwen3-8B
     max-tokens: 4096
     temperature: 0.7
-    mock-mode: false  # 设为true使用模拟数据，false使用真实API
+    mock-mode: false # 设为true使用模拟数据，false使用真实API
     # 可选模型列表
     available-models:
       - Qwen/Qwen3-8B
@@ -53,8 +71,8 @@ llm:
 # 文件上传配置
 file:
   upload:
-    path: uploads  # 上传文件存储目录
-    url-prefix: /uploads  # 访问URL前缀
+    path: uploads # 上传文件存储目录
+    url-prefix: /uploads # 访问URL前缀
 
 # Spring文件上传限制
 spring.servlet.multipart:

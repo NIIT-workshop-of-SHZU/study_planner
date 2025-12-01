@@ -25,6 +25,12 @@ public class CheckInService {
     @Autowired
     private PlanDetailMapper planDetailMapper;
     
+    @Autowired(required = false)
+    private PlanReminderService planReminderService;
+    
+    @Autowired
+    private PlanService planService;
+    
     /**
      * 打卡签到
      */
@@ -41,7 +47,30 @@ public class CheckInService {
         // 更新任务完成状态
         planDetailMapper.updateCompleted(checkIn.getDetailId(), 1);
         
+        // 检查计划进度，如果达到100%则自动更新状态为"已完成"
+        checkAndUpdatePlanStatus(checkIn.getPlanId());
+        
+        // 清除该计划的提醒记录（因为用户已经打卡了）
+        if (planReminderService != null) {
+            planReminderService.clearReminderRecord(checkIn.getPlanId());
+        }
+        
         return checkIn;
+    }
+    
+    /**
+     * 检查计划进度并自动更新状态
+     */
+    private void checkAndUpdatePlanStatus(Long planId) {
+        try {
+            double progress = planService.getPlanProgress(planId);
+            if (progress >= 100.0) {
+                planService.updatePlanStatus(planId, "已完成");
+                System.out.println("计划 " + planId + " 进度达到100%，已自动更新状态为'已完成'");
+            }
+        } catch (Exception e) {
+            System.err.println("检查计划状态失败: " + planId + ", " + e.getMessage());
+        }
     }
     
     /**

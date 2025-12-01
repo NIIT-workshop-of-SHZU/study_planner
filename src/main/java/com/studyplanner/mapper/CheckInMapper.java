@@ -74,4 +74,10 @@ public interface CheckInMapper {
      */
     @Select("SELECT check_date FROM check_in WHERE user_id = #{userId} GROUP BY check_date ORDER BY check_date DESC")
     List<LocalDate> findCheckInDates(Long userId);
+    
+    /**
+     * 查询计划最后一次打卡时间（包含时间戳）
+     */
+    @Select("SELECT MAX(create_time) FROM check_in WHERE plan_id = #{planId}")
+    java.time.LocalDateTime findLastCheckInDateTimeByPlanId(Long planId);
 }

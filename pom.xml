@@ -84,6 +84,12 @@
             <artifactId>spring-session-core</artifactId>
         </dependency>
 
+        <!-- 邮件支持 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
         <!-- 热部署（开发时使用） -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

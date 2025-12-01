@@ -14,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -22,16 +21,16 @@ import java.util.List;
  */
 @Service
 public class PlanService {
-    
+
     @Autowired
     private PlanMapper planMapper;
-    
+
     @Autowired
     private PlanDetailMapper planDetailMapper;
-    
+
     @Autowired
     private LLMService llmService;
-    
+
     /**
      * 生成学习计划（调用LLM - 登录用户使用系统配置）
      */
@@ -43,23 +42,22 @@ public class PlanService {
                 request.getLevel(),
                 request.getDailyHours().doubleValue(),
                 request.getTotalDays(),
-                request.getModelName()
-        );
-        
+                request.getModelName());
+
         // 解析LLM返回的JSON
         JSONObject planJson = parseLLMResponse(llmResponse);
-        
+
         // 创建计划
         StudyPlan plan = new StudyPlan();
         plan.setUserId(userId);
-        
+
         // 处理标题：如果用户未提供或为空，则使用LLM生成的标题
         String title = request.getTitle();
         if (title == null || title.trim().isEmpty()) {
             title = planJson.getString("title");
         }
         plan.setTitle(title);
-        
+
         plan.setGoal(request.getGoal());
         plan.setLevel(request.getLevel());
         plan.setDailyHours(request.getDailyHours());
@@ -67,15 +65,15 @@ public class PlanService {
         plan.setStartDate(LocalDate.now());
         plan.setEndDate(LocalDate.now().plusDays(request.getTotalDays() - 1));
         plan.setStatus("进行中");
-        
+
         planMapper.insert(plan);
-        
+
         // 解析并保存每日任务
         savePlanDetails(plan, planJson);
-        
+
         return plan;
     }
-    
+
     /**
      * 游客体验生成计划（使用自定义API配置，不保存到数据库）
      */
@@ -88,17 +86,16 @@ public class PlanService {
                 request.getTotalDays(),
                 request.getCustomApiUrl(),
                 request.getCustomApiKey(),
-                request.getModelName()
-        );
-        
+                request.getModelName());
+
         // 解析并返回计划JSON（不保存）
         JSONObject planJson = parseLLMResponse(llmResponse);
         planJson.put("isGuestPlan", true);
         planJson.put("message", "游客计划仅供预览，登录后可保存计划");
-        
+
         return planJson;
     }
-    
+
     /**
      * 解析LLM返回的响应
      */
@@ -112,42 +109,52 @@ public class PlanService {
         }
         return JSON.parseObject(jsonStr);
     }
-    
+
     /**
      * 保存计划详情
      */
     private void savePlanDetails(StudyPlan plan, JSONObject planJson) {
         JSONArray dailyPlans = planJson.getJSONArray("dailyPlans");
-        if (dailyPlans == null) return;
-        
+        if (dailyPlans == null)
+            return;
+
         for (int i = 0; i < dailyPlans.size(); i++) {
             JSONObject dayPlan = dailyPlans.getJSONObject(i);
-            
+
             PlanDetail detail = new PlanDetail();
             detail.setPlanId(plan.getId());
             detail.setDayNumber(dayPlan.getIntValue("day"));
             detail.setContent(dayPlan.getString("content"));
             detail.setDuration(BigDecimal.valueOf(dayPlan.getDoubleValue("duration")));
-            detail.setResources(dayPlan.getJSONArray("resources") != null ? 
-                    dayPlan.getJSONArray("resources").toJSONString() : "[]");
+            detail.setResources(
+                    dayPlan.getJSONArray("resources") != null ? dayPlan.getJSONArray("resources").toJSONString()
+                            : "[]");
             detail.setIsCompleted(0);
-            
+
             planDetailMapper.insert(detail);
         }
     }
-    
+
     /**
      * 获取用户的所有计划
      */
     public List<StudyPlan> getUserPlans(Long userId) {
         List<StudyPlan> plans = planMapper.findByUserId(userId);
-        // 计算每个计划的进度
+        // 计算每个计划的进度，并检查是否需要更新状态
         for (StudyPlan plan : plans) {
-            plan.setProgress(getPlanProgress(plan.getId()));
+            double progress = getPlanProgress(plan.getId());
+            plan.setProgress(progress);
+            
+            // 如果进度达到100%且状态仍为"进行中"，自动更新为"已完成"
+            if (progress >= 100.0 && "进行中".equals(plan.getStatus())) {
+                updatePlanStatus(plan.getId(), "已完成");
+                plan.setStatus("已完成");
+                System.out.println("计划 " + plan.getId() + " 进度达到100%，已自动更新状态为'已完成'");
+            }
         }
         return plans;
     }
-    
+
     /**
      * 更新计划信息
      */
@@ -164,48 +171,48 @@ public class PlanService {
     public StudyPlan getPlanWithDetails(Long planId) {
         return planMapper.findById(planId);
     }
-    
+
     /**
      * 获取计划的每日任务列表
      */
     public List<PlanDetail> getPlanDetails(Long planId) {
         return planDetailMapper.findByPlanId(planId);
     }
-    
+
     /**
      * 更新计划状态
      */
     public void updatePlanStatus(Long planId, String status) {
         planMapper.updateStatus(planId, status);
     }
-    
+
     /**
      * 删除计划
      */
     @Transactional
     public void deletePlan(Long planId, Long userId) {
         StudyPlan plan = validatePlanOwner(planId, userId);
-        
+
         planDetailMapper.deleteByPlanId(planId);
         planMapper.delete(plan.getId());
     }
-    
+
     /**
      * 获取今日任务
      */
     public PlanDetail getTodayTask(Long planId, Long userId) {
         StudyPlan plan = validatePlanOwner(planId, userId);
-        
+
         // 计算今天是计划的第几天
         long dayNumber = LocalDate.now().toEpochDay() - plan.getStartDate().toEpochDay() + 1;
-        
+
         if (dayNumber < 1 || dayNumber > plan.getTotalDays()) {
             return null;
         }
-        
+
         return planDetailMapper.findByPlanIdAndDay(planId, (int) dayNumber);
     }
-    
+
     /**
      * 获取计划进度
      */
@@ -214,7 +221,7 @@ public class PlanService {
         if (details.isEmpty()) {
             return 0;
         }
-        
+
         int completed = planDetailMapper.countCompletedByPlanId(planId);
         return (double) completed / details.size() * 100;
     }
