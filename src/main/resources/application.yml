@@ -56,7 +56,7 @@ llm:
     # 系统提供的API配置（登录用户使用）
     provider: siliconflow
     base-url: https://api.siliconflow.cn/v1
-    api-key: sk-jkjpfyjbughuffoqsrrheaeraefcxotzcvtrbrbksacnptgo
+    api-key: sk-afmskzvlextgugkpsbpmkbeqyhlttmwiguvdehcdryhqtjra
     model: Qwen/Qwen3-8B
     max-tokens: 4096
     temperature: 0.4
