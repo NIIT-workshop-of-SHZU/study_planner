@@ -1,366 +1,214 @@
 package com.studyplanner.controller;
 
 import com.studyplanner.dto.ApiResponse;
+import com.studyplanner.service.ForumAnswerService;
+import com.studyplanner.service.ForumCommentService;
+import com.studyplanner.service.ForumQuestionService;
+import com.studyplanner.service.ForumTopicService;
 import jakarta.servlet.http.HttpSession;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-/**
- * 论坛控制器（占位符实现）
- * 注意：这是一个简化实现，用于避免前端404错误
- * 实际功能需要完整的数据库设计和业务逻辑实现
- */
 @RestController
 @RequestMapping("/api/forum")
 public class ForumController {
-    
-    /**
-     * 获取问题列表
-     */
+
+    @Autowired
+    private ForumQuestionService questionService;
+
+    @Autowired
+    private ForumTopicService topicService;
+
+    @Autowired
+    private ForumAnswerService answerService;
+
+    @Autowired
+    private ForumCommentService commentService;
+
+    // -------------------- Question --------------------
+
     @GetMapping("/question")
     public ApiResponse<List<Map<String, Object>>> getQuestions(
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer pageSize,
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) Long topicId) {
-        
-        // 返回空列表（占位符）
-        return ApiResponse.success(new ArrayList<>());
+            @RequestParam(required = false) Long topicId
+    ) {
+        return ApiResponse.success(questionService.listQuestions(page, pageSize, keyword, topicId));
     }
-    
-    /**
-     * 获取问题详情
-     */
+
     @GetMapping("/question/{id}")
     public ApiResponse<Map<String, Object>> getQuestionDetail(@PathVariable Long id) {
-        return ApiResponse.error("论坛功能暂未实现");
+        Map<String, Object> q = questionService.getQuestionDetail(id);
+        if (q == null) return ApiResponse.error(404, "问题不存在");
+        return ApiResponse.success(q);
     }
-    
-    /**
-     * 创建问题
-     */
+
     @PostMapping("/question")
     public ApiResponse<Map<String, Object>> createQuestion(
             @RequestBody Map<String, Object> data,
-            HttpSession session) {
+            HttpSession session
+    ) {
         Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            return ApiResponse.unauthorized("请先登录");
+        if (userId == null) return ApiResponse.unauthorized("请先登录");
+
+        try {
+            return ApiResponse.success(questionService.createQuestion(data, userId));
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.badRequest(e.getMessage());
+        } catch (Exception e) {
+            return ApiResponse.error("发布问题失败: " + e.getMessage());
         }
-        return ApiResponse.error("论坛功能暂未实现");
     }
-    
-    /**
-     * 更新问题
-     */
-    @PutMapping("/question/{id}")
-    public ApiResponse<Map<String, Object>> updateQuestion(
-            @PathVariable Long id,
-            @RequestBody Map<String, Object> data,
-            HttpSession session) {
-        Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            return ApiResponse.unauthorized("请先登录");
-        }
-        return ApiResponse.error("论坛功能暂未实现");
-    }
-    
-    /**
-     * 删除问题
-     */
-    @DeleteMapping("/question/{id}")
-    public ApiResponse<Void> deleteQuestion(
-            @PathVariable Long id,
-            HttpSession session) {
-        Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            return ApiResponse.unauthorized("请先登录");
-        }
-        return ApiResponse.error("论坛功能暂未实现");
-    }
-    
-    /**
-     * 关注/取消关注问题
-     */
+
     @PostMapping("/question/{id}/follow")
-    public ApiResponse<Void> followQuestion(
-            @PathVariable Long id,
-            HttpSession session) {
+    public ApiResponse<Map<String, Object>> followQuestion(@PathVariable Long id, HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            return ApiResponse.unauthorized("请先登录");
-        }
-        return ApiResponse.error("论坛功能暂未实现");
+        if (userId == null) return ApiResponse.unauthorized("请先登录");
+
+        // 最小实现：不做用户级关注表，只返回一个“已关注”的结构，避免前端报错
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("follow_count", 0);
+        resp.put("is_followed", true);
+        return ApiResponse.success(resp);
     }
-    
-    /**
-     * 获取问题的回答列表
-     */
+
+    // -------------------- Answer --------------------
+
     @GetMapping("/question/{questionId}/answers")
     public ApiResponse<List<Map<String, Object>>> getAnswers(
             @PathVariable Long questionId,
             @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer pageSize) {
-        return ApiResponse.success(new ArrayList<>());
+            @RequestParam(required = false) Integer pageSize,
+            @RequestParam(required = false) String sort
+    ) {
+        return ApiResponse.success(answerService.listAnswers(questionId, page, pageSize, sort));
     }
-    
-    /**
-     * 回答相关接口
-     */
-    @GetMapping("/answer/{id}")
-    public ApiResponse<Map<String, Object>> getAnswerDetail(@PathVariable Long id) {
-        return ApiResponse.error("论坛功能暂未实现");
-    }
-    
+
     @PostMapping("/answer")
     public ApiResponse<Map<String, Object>> createAnswer(
             @RequestBody Map<String, Object> data,
-            HttpSession session) {
+            HttpSession session
+    ) {
         Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            return ApiResponse.unauthorized("请先登录");
+        if (userId == null) return ApiResponse.unauthorized("请先登录");
+
+        try {
+            return ApiResponse.success(answerService.createAnswer(data, userId));
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.badRequest(e.getMessage());
+        } catch (Exception e) {
+            return ApiResponse.error("发布回答失败: " + e.getMessage());
         }
-        return ApiResponse.error("论坛功能暂未实现");
     }
-    
-    @PutMapping("/answer/{id}")
-    public ApiResponse<Map<String, Object>> updateAnswer(
-            @PathVariable Long id,
-            @RequestBody Map<String, Object> data,
-            HttpSession session) {
-        Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            return ApiResponse.unauthorized("请先登录");
-        }
-        return ApiResponse.error("论坛功能暂未实现");
-    }
-    
-    @DeleteMapping("/answer/{id}")
-    public ApiResponse<Void> deleteAnswer(
-            @PathVariable Long id,
-            HttpSession session) {
-        Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            return ApiResponse.unauthorized("请先登录");
-        }
-        return ApiResponse.error("论坛功能暂未实现");
-    }
-    
+
     @PostMapping("/answer/{id}/vote")
-    public ApiResponse<Map<String, Object>> voteAnswer(
-            @PathVariable Long id,
-            HttpSession session) {
+    public ApiResponse<Map<String, Object>> voteAnswer(@PathVariable Long id, HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            return ApiResponse.unauthorized("请先登录");
+        if (userId == null) return ApiResponse.unauthorized("请先登录");
+
+        try {
+            return ApiResponse.success(answerService.voteAnswer(id));
+        } catch (Exception e) {
+            return ApiResponse.error("点赞失败: " + e.getMessage());
         }
-        return ApiResponse.error("论坛功能暂未实现");
     }
-    
+
     @PostMapping("/answer/{id}/collect")
-    public ApiResponse<Void> collectAnswer(
-            @PathVariable Long id,
-            HttpSession session) {
+    public ApiResponse<Map<String, Object>> collectAnswer(@PathVariable Long id, HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            return ApiResponse.unauthorized("请先登录");
+        if (userId == null) return ApiResponse.unauthorized("请先登录");
+
+        try {
+            return ApiResponse.success(answerService.collectAnswer(id));
+        } catch (Exception e) {
+            return ApiResponse.error("收藏失败: " + e.getMessage());
         }
-        return ApiResponse.error("论坛功能暂未实现");
     }
-    
-    /**
-     * 评论相关接口
-     */
+
+    // -------------------- Comment --------------------
+
     @GetMapping("/comment")
     public ApiResponse<List<Map<String, Object>>> getComments(
-            @RequestParam(required = false) Long answerId,
-            @RequestParam(required = false) Long questionId) {
-        return ApiResponse.success(new ArrayList<>());
+            @RequestParam(value = "answer_id", required = false) Long answerId,
+            @RequestParam(value = "question_id", required = false) Long questionId
+    ) {
+        // 前端当前用的是 answer_id
+        if (answerId == null) return ApiResponse.success(new ArrayList<>());
+        return ApiResponse.success(commentService.listCommentsByAnswer(answerId));
     }
-    
+
     @PostMapping("/comment")
     public ApiResponse<Map<String, Object>> createComment(
             @RequestBody Map<String, Object> data,
-            HttpSession session) {
+            HttpSession session
+    ) {
         Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            return ApiResponse.unauthorized("请先登录");
+        if (userId == null) return ApiResponse.unauthorized("请先登录");
+
+        try {
+            return ApiResponse.success(commentService.createComment(data, userId));
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.badRequest(e.getMessage());
+        } catch (Exception e) {
+            return ApiResponse.error("评论失败: " + e.getMessage());
         }
-        return ApiResponse.error("论坛功能暂未实现");
     }
-    
-    @DeleteMapping("/comment/{id}")
-    public ApiResponse<Void> deleteComment(
-            @PathVariable Long id,
-            HttpSession session) {
-        Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            return ApiResponse.unauthorized("请先登录");
-        }
-        return ApiResponse.error("论坛功能暂未实现");
-    }
-    
+
     @PostMapping("/comment/{id}/vote")
-    public ApiResponse<Map<String, Object>> voteComment(
-            @PathVariable Long id,
-            HttpSession session) {
+    public ApiResponse<Map<String, Object>> voteComment(@PathVariable Long id, HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            return ApiResponse.unauthorized("请先登录");
+        if (userId == null) return ApiResponse.unauthorized("请先登录");
+
+        try {
+            return ApiResponse.success(commentService.voteComment(id));
+        } catch (Exception e) {
+            return ApiResponse.error("点赞失败: " + e.getMessage());
         }
-        return ApiResponse.error("论坛功能暂未实现");
     }
-    
-    /**
-     * 话题相关接口
-     */
+
+    // -------------------- Topic --------------------
+
     @GetMapping("/topic")
     public ApiResponse<List<Map<String, Object>>> getTopics(
             @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer pageSize) {
-        return ApiResponse.success(new ArrayList<>());
+            @RequestParam(required = false) Integer pageSize
+    ) {
+        return ApiResponse.success(topicService.getTopics(page, pageSize));
     }
-    
+
     @GetMapping("/topic/{id}")
     public ApiResponse<Map<String, Object>> getTopicDetail(@PathVariable Long id) {
-        return ApiResponse.error("论坛功能暂未实现");
+        Map<String, Object> t = topicService.getTopicDetail(id);
+        if (t == null) return ApiResponse.error(404, "话题不存在");
+        return ApiResponse.success(t);
     }
-    
+
     @GetMapping("/topic/{id}/questions")
     public ApiResponse<List<Map<String, Object>>> getTopicQuestions(
             @PathVariable Long id,
             @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer pageSize) {
-        return ApiResponse.success(new ArrayList<>());
+            @RequestParam(required = false) Integer pageSize
+    ) {
+        // topic 下的问题列表：复用 questionService（topicId 过滤）
+        return ApiResponse.success(questionService.listQuestions(page, pageSize, null, id));
     }
-    
-    @PostMapping("/topic/{id}/follow")
-    public ApiResponse<Void> followTopic(
-            @PathVariable Long id,
-            HttpSession session) {
-        Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            return ApiResponse.unauthorized("请先登录");
-        }
-        return ApiResponse.error("论坛功能暂未实现");
-    }
-    
+
     @GetMapping("/topic/hot")
     public ApiResponse<List<Map<String, Object>>> getHotTopics() {
-        return ApiResponse.success(new ArrayList<>());
+        return ApiResponse.success(topicService.getHotTopics(10));
     }
-    
-    /**
-     * 用户相关接口
-     */
-    @GetMapping("/user/{id}")
-    public ApiResponse<Map<String, Object>> getUserInfo(@PathVariable Long id) {
-        return ApiResponse.error("论坛功能暂未实现");
-    }
-    
-    @GetMapping("/user/{id}/questions")
-    public ApiResponse<List<Map<String, Object>>> getUserQuestions(
-            @PathVariable Long id,
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer pageSize) {
-        return ApiResponse.success(new ArrayList<>());
-    }
-    
-    @GetMapping("/user/{id}/answers")
-    public ApiResponse<List<Map<String, Object>>> getUserAnswers(
-            @PathVariable Long id,
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer pageSize) {
-        return ApiResponse.success(new ArrayList<>());
-    }
-    
-    @GetMapping("/user/{id}/collections")
-    public ApiResponse<List<Map<String, Object>>> getUserCollections(
-            @PathVariable Long id,
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer pageSize) {
-        return ApiResponse.success(new ArrayList<>());
-    }
-    
-    @GetMapping("/user/{id}/following")
-    public ApiResponse<List<Map<String, Object>>> getFollowing(
-            @PathVariable Long id,
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer pageSize) {
-        return ApiResponse.success(new ArrayList<>());
-    }
-    
-    @GetMapping("/user/{id}/followers")
-    public ApiResponse<List<Map<String, Object>>> getFollowers(
-            @PathVariable Long id,
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer pageSize) {
-        return ApiResponse.success(new ArrayList<>());
-    }
-    
-    /**
-     * 搜索相关接口
-     */
-    @GetMapping("/search")
-    public ApiResponse<Map<String, Object>> search(
-            @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) String type,
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer pageSize) {
-        Map<String, Object> result = new HashMap<>();
-        result.put("questions", new ArrayList<>());
-        result.put("answers", new ArrayList<>());
-        result.put("users", new ArrayList<>());
-        result.put("total", 0);
-        return ApiResponse.success(result);
-    }
-    
-    @GetMapping("/search/suggest")
-    public ApiResponse<List<String>> getSuggestions(@RequestParam String keyword) {
-        return ApiResponse.success(new ArrayList<>());
-    }
-    
-    /**
-     * 互动相关接口
-     */
-    @GetMapping("/my/questions")
-    public ApiResponse<List<Map<String, Object>>> getMyQuestions(
-            HttpSession session,
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer pageSize) {
+
+    @PostMapping("/topic/{id}/follow")
+    public ApiResponse<Map<String, Object>> followTopic(@PathVariable Long id, HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            return ApiResponse.unauthorized("请先登录");
-        }
-        return ApiResponse.success(new ArrayList<>());
-    }
-    
-    @GetMapping("/my/answers")
-    public ApiResponse<List<Map<String, Object>>> getMyAnswers(
-            HttpSession session,
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer pageSize) {
-        Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            return ApiResponse.unauthorized("请先登录");
-        }
-        return ApiResponse.success(new ArrayList<>());
-    }
-    
-    @GetMapping("/my/collections")
-    public ApiResponse<List<Map<String, Object>>> getMyCollections(
-            HttpSession session,
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer pageSize) {
-        Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            return ApiResponse.unauthorized("请先登录");
-        }
-        return ApiResponse.success(new ArrayList<>());
+        if (userId == null) return ApiResponse.unauthorized("请先登录");
+
+        // 最小实现：不做用户级关注表，避免前端报错
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("is_followed", true);
+        return ApiResponse.success(resp);
     }
 }
-
