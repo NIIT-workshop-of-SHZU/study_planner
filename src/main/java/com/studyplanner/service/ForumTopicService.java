@@ -37,6 +37,41 @@ public class ForumTopicService {
         return toTopicMap(t, false);
     }
 
+    @org.springframework.transaction.annotation.Transactional
+    public Map<String, Object> createOrGetTopic(String name, String description) {
+        // 先查找是否已存在（不区分大小写）
+        ForumTopic existing = topicMapper.findByName(name);
+        if (existing != null) {
+            return toTopicMap(existing, false);
+        }
+        
+        // 不存在则创建
+        ForumTopic topic = new ForumTopic();
+        topic.setName(name);
+        topic.setDescription(description == null ? "" : description);
+        try {
+            topicMapper.insert(topic);
+            return toTopicMap(topic, false);
+        } catch (Exception e) {
+            // 如果插入失败（可能是唯一键冲突），再次查找
+            existing = topicMapper.findByName(name);
+            if (existing != null) {
+                return toTopicMap(existing, false);
+            }
+            // 检查是否是唯一键冲突
+            String errorMsg = e.getMessage();
+            if (errorMsg != null && (errorMsg.contains("Duplicate") || errorMsg.contains("UNIQUE"))) {
+                throw new IllegalArgumentException("话题名称已存在");
+            }
+            throw new RuntimeException("话题创建失败：" + errorMsg, e);
+        }
+    }
+
+    public Long findTopicByName(String name) {
+        ForumTopic t = topicMapper.findByName(name);
+        return t == null ? null : t.getId();
+    }
+
     private Map<String, Object> toTopicMap(ForumTopic t, boolean isFollowed) {
         Map<String, Object> m = new HashMap<>();
         m.put("id", t.getId());

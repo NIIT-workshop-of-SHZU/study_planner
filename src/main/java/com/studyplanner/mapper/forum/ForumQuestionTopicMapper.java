@@ -35,4 +35,7 @@ public interface ForumQuestionTopicMapper {
             "WHERE qt.question_id = #{questionId} " +
             "ORDER BY t.follow_count DESC, t.id DESC")
     List<ForumTopic> findTopicsByQuestionId(@Param("questionId") Long questionId);
+
+    @Delete("DELETE FROM forum_question_topic WHERE question_id = #{questionId}")
+    int deleteByQuestionId(@Param("questionId") Long questionId);
 }

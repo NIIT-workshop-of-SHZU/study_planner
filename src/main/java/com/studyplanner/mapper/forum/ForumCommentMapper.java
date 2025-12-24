@@ -25,4 +25,10 @@ public interface ForumCommentMapper {
 
     @Update("UPDATE forum_comment SET vote_count = vote_count + 1 WHERE id = #{id}")
     int incrementVoteCount(@Param("id") Long id);
+
+    @Update("UPDATE forum_comment SET content = #{content}, update_time = NOW() WHERE id = #{id} AND author_id = #{authorId}")
+    int update(@Param("id") Long id, @Param("authorId") Long authorId, @Param("content") String content);
+
+    @Delete("DELETE FROM forum_comment WHERE id = #{id} AND author_id = #{authorId}")
+    int delete(@Param("id") Long id, @Param("authorId") Long authorId);
 }

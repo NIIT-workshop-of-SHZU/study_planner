@@ -59,6 +59,7 @@ CREATE TABLE `user` (
     `password` VARCHAR(255) NOT NULL COMMENT '密码（加密存储）',
     `email` VARCHAR(100) DEFAULT NULL COMMENT '邮箱',
     `avatar` VARCHAR(255) DEFAULT NULL COMMENT '头像URL',
+    `bio` VARCHAR(255) DEFAULT NULL COMMENT '个人简介',
     `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
@@ -191,6 +192,7 @@ CREATE TABLE `forum_question` (
     PRIMARY KEY (`id`),
     KEY `idx_question_author` (`author_id`),
     KEY `idx_question_create_time` (`create_time`),
+    FULLTEXT KEY `ft_question_title_content` (`title`, `content`),
     CONSTRAINT `fk_forum_question_user` FOREIGN KEY (`author_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='论坛问题/帖子表';
 
@@ -218,6 +220,7 @@ CREATE TABLE `forum_answer` (
     KEY `idx_answer_question` (`question_id`),
     KEY `idx_answer_author` (`author_id`),
     KEY `idx_answer_create_time` (`create_time`),
+    FULLTEXT KEY `ft_answer_content` (`content`),
     CONSTRAINT `fk_forum_answer_question` FOREIGN KEY (`question_id`) REFERENCES `forum_question` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_forum_answer_user` FOREIGN KEY (`author_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='论坛回答表';

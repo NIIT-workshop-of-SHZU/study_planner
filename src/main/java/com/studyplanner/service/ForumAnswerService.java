@@ -68,6 +68,57 @@ public class ForumAnswerService {
         return Map.of("is_collected", true);
     }
 
+    @Transactional
+    public Map<String, Object> updateAnswer(Long id, Map<String, Object> data, Long userId) {
+        ForumAnswer a = answerMapper.findById(id);
+        if (a == null) throw new IllegalArgumentException("回答不存在");
+        if (!a.getAuthorId().equals(userId)) throw new IllegalArgumentException("无权编辑此回答");
+
+        String content = asString(data.get("content"));
+        if (content == null || content.trim().isEmpty()) throw new IllegalArgumentException("内容不能为空");
+
+        answerMapper.update(id, userId, content.trim());
+        a = answerMapper.findById(id);
+        return toAnswerMap(a);
+    }
+
+    @Transactional
+    public void deleteAnswer(Long id, Long userId) {
+        ForumAnswer a = answerMapper.findById(id);
+        if (a == null) throw new IllegalArgumentException("回答不存在");
+        if (!a.getAuthorId().equals(userId)) throw new IllegalArgumentException("无权删除此回答");
+        
+        Long questionId = a.getQuestionId();
+        answerMapper.delete(id, userId);
+        
+        // 减少问题的回答数
+        try { 
+            questionMapper.decrementAnswerCount(questionId); 
+        } catch (Exception ignore) {}
+    }
+
+    public Map<String, Object> getAnswerDetail(Long id) {
+        ForumAnswer a = answerMapper.findById(id);
+        if (a == null) return null;
+        return toAnswerMap(a);
+    }
+
+    public List<Map<String, Object>> getUserAnswers(Long userId, Integer page, Integer pageSize) {
+        int p = (page == null || page < 1) ? 1 : page;
+        int ps = (pageSize == null || pageSize < 1) ? 20 : pageSize;
+        int offset = (p - 1) * ps;
+
+        List<ForumAnswer> answers = answerMapper.findByAuthorId(userId, offset, ps);
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (ForumAnswer a : answers) result.add(toAnswerMap(a));
+        return result;
+    }
+
+    public List<Map<String, Object>> getUserCollections(Long userId, Integer page, Integer pageSize) {
+        // 简化实现：返回空列表（需要实现收藏表查询）
+        return new ArrayList<>();
+    }
+
     private Map<String, Object> toAnswerMap(ForumAnswer a) {
         Map<String, Object> m = new HashMap<>();
         m.put("id", a.getId());

@@ -42,4 +42,17 @@ public interface ForumAnswerMapper {
 
     @Update("UPDATE forum_answer SET comment_count = comment_count + 1 WHERE id = #{answerId}")
     int incrementCommentCount(@Param("answerId") Long answerId);
+
+    @Update("UPDATE forum_answer SET content = #{content}, update_time = NOW() WHERE id = #{id} AND author_id = #{authorId}")
+    int update(@Param("id") Long id, @Param("authorId") Long authorId, @Param("content") String content);
+
+    @Delete("DELETE FROM forum_answer WHERE id = #{id} AND author_id = #{authorId}")
+    int delete(@Param("id") Long id, @Param("authorId") Long authorId);
+
+    @Select("SELECT * FROM forum_answer WHERE author_id = #{authorId} ORDER BY create_time DESC, id DESC LIMIT #{limit} OFFSET #{offset}")
+    List<ForumAnswer> findByAuthorId(
+            @Param("authorId") Long authorId,
+            @Param("offset") int offset,
+            @Param("limit") int limit
+    );
 }
