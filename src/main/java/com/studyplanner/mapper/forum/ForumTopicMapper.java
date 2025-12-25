@@ -54,4 +54,15 @@ public interface ForumTopicMapper {
 
     @Update("UPDATE forum_topic SET question_count = question_count + 1 WHERE id = #{id}")
     int incrementQuestionCount(@Param("id") Long id);
+    
+    @Select("SELECT t.* FROM forum_topic t " +
+            "INNER JOIN forum_topic_follow f ON t.id = f.topic_id " +
+            "WHERE f.user_id = #{userId} " +
+            "ORDER BY f.create_time DESC, t.id DESC " +
+            "LIMIT #{limit} OFFSET #{offset}")
+    List<ForumTopic> findFollowedByUserId(
+        @Param("userId") Long userId,
+        @Param("offset") int offset,
+        @Param("limit") int limit
+    );
 }

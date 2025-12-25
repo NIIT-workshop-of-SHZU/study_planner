@@ -72,4 +72,16 @@ public interface UserMapper {
             @Param("offset") int offset,
             @Param("limit") int limit
     );
+    
+    @Select("SELECT COUNT(*) FROM forum_question WHERE author_id = #{userId}")
+    int countQuestionsByUserId(@Param("userId") Long userId);
+    
+    @Select("SELECT COUNT(*) FROM forum_answer WHERE author_id = #{userId}")
+    int countAnswersByUserId(@Param("userId") Long userId);
+    
+    @Select("SELECT COALESCE(SUM(vote_count), 0) FROM forum_answer WHERE author_id = #{userId}")
+    int sumVoteCountByUserId(@Param("userId") Long userId);
+    
+    @Select("SELECT COUNT(*) FROM forum_question_favorite WHERE user_id = #{userId}")
+    int countFavoritesByUserId(@Param("userId") Long userId);
 }

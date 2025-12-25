@@ -42,7 +42,8 @@ public class PlanService {
                 request.getLevel(),
                 request.getDailyHours().doubleValue(),
                 request.getTotalDays(),
-                request.getModelName());
+                request.getModelName(),
+                request.getLanguage());
 
         // 解析LLM返回的JSON
         JSONObject planJson = parseLLMResponse(llmResponse);
@@ -86,7 +87,8 @@ public class PlanService {
                 request.getTotalDays(),
                 request.getCustomApiUrl(),
                 request.getCustomApiKey(),
-                request.getModelName());
+                request.getModelName(),
+                request.getLanguage());
 
         // 解析并返回计划JSON（不保存）
         JSONObject planJson = parseLLMResponse(llmResponse);

@@ -52,70 +52,78 @@ public interface ForumQuestionMapper {
 
     @Update("UPDATE forum_question SET answer_count = answer_count + 1 WHERE id = #{id}")
     int incrementAnswerCount(@Param("id") Long id);
-
+    
     @Update("UPDATE forum_question SET answer_count = answer_count - 1 WHERE id = #{id} AND answer_count > 0")
     int decrementAnswerCount(@Param("id") Long id);
-
-    @Update("UPDATE forum_question SET title = #{title}, content = #{content}, update_time = NOW() WHERE id = #{id} AND author_id = #{authorId}")
-    int update(@Param("id") Long id, @Param("authorId") Long authorId, @Param("title") String title, @Param("content") String content);
-
-    @Delete("DELETE FROM forum_question WHERE id = #{id} AND author_id = #{authorId}")
-    int delete(@Param("id") Long id, @Param("authorId") Long authorId);
-
-    @Select({
-            "<script>",
-            "SELECT q.* FROM forum_question q",
-            "<if test='sort == \"hot\"'>",
-            "ORDER BY (q.answer_count * 2 + q.view_count + q.follow_count) DESC, q.create_time DESC",
-            "</if>",
-            "<if test='sort == \"recommend\"'>",
-            "ORDER BY q.answer_count DESC, q.view_count DESC, q.create_time DESC",
-            "</if>",
-            "<if test='sort == null or sort == \"default\"'>",
-            "ORDER BY q.create_time DESC, q.id DESC",
-            "</if>",
-            "LIMIT #{limit} OFFSET #{offset}",
-            "</script>"
-    })
-    List<ForumQuestion> findWithSort(
-            @Param("sort") String sort,
-            @Param("offset") int offset,
-            @Param("limit") int limit
-    );
-
+    
     @Select("SELECT q.* FROM forum_question q " +
-            "INNER JOIN forum_question_follow qf ON q.id = qf.question_id " +
-            "WHERE qf.user_id = #{userId} " +
-            "ORDER BY q.create_time DESC, q.id DESC " +
+            "INNER JOIN forum_question_follow f ON q.id = f.question_id " +
+            "WHERE f.user_id = #{userId} " +
+            "ORDER BY f.create_time DESC, q.id DESC " +
             "LIMIT #{limit} OFFSET #{offset}")
     List<ForumQuestion> findFollowedByUser(
-            @Param("userId") Long userId,
-            @Param("offset") int offset,
-            @Param("limit") int limit
+        @Param("userId") Long userId,
+        @Param("offset") int offset,
+        @Param("limit") int limit
     );
-
+    
     @Select({
-            "<script>",
-            "SELECT q.* FROM forum_question q",
-            "<where>",
-            "  <if test='keyword != null and keyword != \"\"'>",
-            "    (q.title LIKE CONCAT('%', #{keyword}, '%') OR q.content LIKE CONCAT('%', #{keyword}, '%'))",
-            "  </if>",
-            "</where>",
-            "ORDER BY q.create_time DESC, q.id DESC",
-            "LIMIT #{limit} OFFSET #{offset}",
-            "</script>"
+        "<script>",
+        "SELECT * FROM forum_question",
+        "<if test='sort == \"hot\"'>",
+        "  ORDER BY answer_count DESC, view_count DESC, create_time DESC",
+        "</if>",
+        "<if test='sort == \"recommend\"'>",
+        "  ORDER BY follow_count DESC, answer_count DESC, create_time DESC",
+        "</if>",
+        "<if test='sort != \"hot\" and sort != \"recommend\"'>",
+        "  ORDER BY create_time DESC, id DESC",
+        "</if>",
+        "LIMIT #{limit} OFFSET #{offset}",
+        "</script>"
+    })
+    List<ForumQuestion> findWithSort(
+        @Param("sort") String sort,
+        @Param("offset") int offset,
+        @Param("limit") int limit
+    );
+    
+    @Select({
+        "<script>",
+        "SELECT * FROM forum_question",
+        "<where>",
+        "  <if test='keyword != null and keyword != \"\"'>",
+        "    (title LIKE CONCAT('%', #{keyword}, '%') OR content LIKE CONCAT('%', #{keyword}, '%'))",
+        "  </if>",
+        "</where>",
+        "ORDER BY create_time DESC, id DESC",
+        "LIMIT #{limit} OFFSET #{offset}",
+        "</script>"
     })
     List<ForumQuestion> searchQuestions(
-            @Param("keyword") String keyword,
-            @Param("offset") int offset,
-            @Param("limit") int limit
+        @Param("keyword") String keyword,
+        @Param("offset") int offset,
+        @Param("limit") int limit
     );
-
-    @Select("SELECT * FROM forum_question WHERE author_id = #{authorId} ORDER BY create_time DESC, id DESC LIMIT #{limit} OFFSET #{offset}")
+    
+    @Select("SELECT * FROM forum_question WHERE author_id = #{authorId} " +
+            "ORDER BY create_time DESC, id DESC " +
+            "LIMIT #{limit} OFFSET #{offset}")
     List<ForumQuestion> findByAuthorId(
-            @Param("authorId") Long authorId,
-            @Param("offset") int offset,
-            @Param("limit") int limit
+        @Param("authorId") Long authorId,
+        @Param("offset") int offset,
+        @Param("limit") int limit
     );
+    
+    @Update("UPDATE forum_question SET title = #{title}, content = #{content}, update_time = NOW() " +
+            "WHERE id = #{id} AND author_id = #{userId}")
+    int update(
+        @Param("id") Long id,
+        @Param("userId") Long userId,
+        @Param("title") String title,
+        @Param("content") String content
+    );
+    
+    @Delete("DELETE FROM forum_question WHERE id = #{id} AND author_id = #{userId}")
+    int delete(@Param("id") Long id, @Param("userId") Long userId);
 }

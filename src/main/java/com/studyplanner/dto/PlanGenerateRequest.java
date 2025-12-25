@@ -49,4 +49,9 @@ public class PlanGenerateRequest {
      * 选择的模型名称
      */
     private String modelName;
+    
+    /**
+     * 语言设置（zh-CN 或 en-US），用于生成对应语言的提示词
+     */
+    private String language;
 }
