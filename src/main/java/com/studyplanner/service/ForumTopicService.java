@@ -2,6 +2,7 @@ package com.studyplanner.service;
 
 import com.studyplanner.entity.ForumTopic;
 import com.studyplanner.mapper.forum.ForumTopicMapper;
+import com.studyplanner.mapper.forum.ForumTopicFollowMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -12,11 +13,17 @@ public class ForumTopicService {
 
     @Autowired
     private ForumTopicMapper topicMapper;
+    
+    @Autowired
+    private ForumTopicFollowMapper topicFollowMapper;
 
-    public List<Map<String, Object>> getHotTopics(int limit) {
+    public List<Map<String, Object>> getHotTopics(int limit, Long currentUserId) {
         List<ForumTopic> topics = topicMapper.findHotTopics(limit);
         List<Map<String, Object>> result = new ArrayList<>();
-        for (ForumTopic t : topics) result.add(toTopicMap(t, false));
+        for (ForumTopic t : topics) {
+            boolean isFollowed = currentUserId != null && topicFollowMapper.exists(currentUserId, t.getId());
+            result.add(toTopicMap(t, isFollowed));
+        }
         return result;
     }
 
@@ -31,10 +38,43 @@ public class ForumTopicService {
         return result;
     }
 
-    public Map<String, Object> getTopicDetail(Long id) {
+    public Map<String, Object> getTopicDetail(Long id, Long currentUserId) {
         ForumTopic t = topicMapper.findById(id);
         if (t == null) return null;
-        return toTopicMap(t, false);
+        boolean isFollowed = currentUserId != null && topicFollowMapper.exists(currentUserId, id);
+        return toTopicMap(t, isFollowed);
+    }
+    
+    @org.springframework.transaction.annotation.Transactional
+    public Map<String, Object> followTopic(Long topicId, Long userId) {
+        if (topicId == null || userId == null) {
+            throw new IllegalArgumentException("参数不能为空");
+        }
+        
+        boolean exists = topicFollowMapper.exists(userId, topicId);
+        if (exists) {
+            // 已关注，取消关注
+            topicFollowMapper.delete(userId, topicId);
+            topicFollowMapper.decrementFollowCount(topicId);
+        } else {
+            // 未关注，添加关注
+            topicFollowMapper.insert(userId, topicId);
+            topicFollowMapper.incrementFollowCount(topicId);
+        }
+        
+        ForumTopic t = topicMapper.findById(topicId);
+        return toTopicMap(t, !exists);
+    }
+    
+    public List<Map<String, Object>> getMyFollowedTopics(Long userId, Integer page, Integer pageSize) {
+        int p = (page == null || page < 1) ? 1 : page;
+        int ps = (pageSize == null || pageSize < 1) ? 20 : pageSize;
+        int offset = (p - 1) * ps;
+        
+        List<ForumTopic> topics = topicMapper.findFollowedByUserId(userId, offset, ps);
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (ForumTopic t : topics) result.add(toTopicMap(t, true));
+        return result;
     }
 
     @org.springframework.transaction.annotation.Transactional

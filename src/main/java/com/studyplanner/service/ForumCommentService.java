@@ -22,8 +22,11 @@ public class ForumCommentService {
 
     @Autowired
     private UserMapper userMapper;
+    
+    @Autowired
+    private com.studyplanner.mapper.forum.ForumCommentVoteMapper commentVoteMapper;
 
-    public List<Map<String, Object>> listCommentsByAnswer(Long answerId) {
+    public List<Map<String, Object>> listCommentsByAnswer(Long answerId, Long userId) {
         List<ForumComment> all = commentMapper.findByAnswerId(answerId);
 
         Map<Long, Map<String, Object>> idToMap = new HashMap<>();
@@ -31,7 +34,7 @@ public class ForumCommentService {
 
         for (ForumComment c : all) {
             User u = userCache.computeIfAbsent(c.getAuthorId(), uid -> userMapper.findById(uid));
-            Map<String, Object> cm = toCommentMap(c, u);
+            Map<String, Object> cm = toCommentMap(c, u, userId);
             cm.put("replies", new ArrayList<Map<String, Object>>());
             idToMap.put(c.getId(), cm);
         }
@@ -85,16 +88,31 @@ public class ForumCommentService {
         return Map.of("id", c.getId());
     }
 
-    public Map<String, Object> voteComment(Long id) {
-        commentMapper.incrementVoteCount(id);
+    @Transactional
+    public Map<String, Object> voteComment(Long id, Long userId) {
+        if (id == null || userId == null) {
+            throw new IllegalArgumentException("参数不能为空");
+        }
+        
+        boolean exists = commentVoteMapper.exists(userId, id);
+        if (exists) {
+            // 已点赞，取消点赞
+            commentVoteMapper.delete(userId, id);
+            commentVoteMapper.decrementVoteCount(id);
+        } else {
+            // 未点赞，添加点赞
+            commentVoteMapper.insert(userId, id);
+            commentVoteMapper.incrementVoteCount(id);
+        }
+        
         ForumComment c = commentMapper.findById(id);
-
         Map<String, Object> resp = new HashMap<>();
         resp.put("vote_count", c == null || c.getVoteCount() == null ? 0 : c.getVoteCount());
+        resp.put("is_voted", !exists);
         return resp;
     }
 
-    private Map<String, Object> toCommentMap(ForumComment c, User u) {
+    private Map<String, Object> toCommentMap(ForumComment c, User u, Long userId) {
         Map<String, Object> m = new HashMap<>();
         m.put("id", c.getId());
         m.put("answer_id", c.getAnswerId());
@@ -104,8 +122,20 @@ public class ForumCommentService {
         m.put("created_at", c.getCreateTime() == null ? null : c.getCreateTime().toString());
         m.put("updated_at", c.getUpdateTime() == null ? null : c.getUpdateTime().toString());
         m.put("vote_count", c.getVoteCount() == null ? 0 : c.getVoteCount());
+        
+        // 检查用户是否已点赞
+        if (userId != null) {
+            m.put("is_voted", commentVoteMapper.exists(userId, c.getId()));
+        } else {
+            m.put("is_voted", false);
+        }
+        
         m.put("author", toUserMap(u));
         return m;
+    }
+    
+    private Map<String, Object> toCommentMap(ForumComment c, User u) {
+        return toCommentMap(c, u, null);
     }
 
     private Map<String, Object> toUserMap(User u) {
@@ -138,7 +168,7 @@ public class ForumCommentService {
         commentMapper.update(id, userId, content.trim());
         c = commentMapper.findById(id);
         User u = userMapper.findById(c.getAuthorId());
-        return toCommentMap(c, u);
+        return toCommentMap(c, u, userId);
     }
 
     @Transactional

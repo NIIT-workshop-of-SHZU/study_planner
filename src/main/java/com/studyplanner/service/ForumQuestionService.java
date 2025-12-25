@@ -6,6 +6,8 @@ import com.studyplanner.entity.User;
 import com.studyplanner.mapper.UserMapper;
 import com.studyplanner.mapper.forum.ForumQuestionMapper;
 import com.studyplanner.mapper.forum.ForumQuestionTopicMapper;
+import com.studyplanner.mapper.forum.ForumQuestionFollowMapper;
+import com.studyplanner.mapper.forum.ForumQuestionFavoriteMapper;
 import com.studyplanner.mapper.forum.ForumTopicMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -30,8 +32,26 @@ public class ForumQuestionService {
 
     @Autowired
     private UserMapper userMapper;
+    
+    @Autowired
+    private ForumFavoriteService favoriteService;
+    
+    @Autowired
+    private ForumQuestionFollowMapper questionFollowMapper;
+    
+    @Autowired
+    private ForumUserFollowService userFollowService;
+    
+    @Autowired
+    private ForumQuestionFavoriteMapper favoriteMapper;
+    
+    @Autowired
+    private ForumTopicService topicService;
+    
+    @Autowired
+    private com.studyplanner.mapper.forum.ForumQuestionVoteMapper questionVoteMapper;
 
-    public List<Map<String, Object>> listQuestions(Integer page, Integer pageSize, String keyword, Long topicId, String sort, Boolean following, Long userId) {
+    public List<Map<String, Object>> listQuestions(Integer page, Integer pageSize, String keyword, Long topicId, String sort, Boolean following, Boolean favorite, Long userId) {
         int p = (page == null || page < 1) ? 1 : page;
         int ps = (pageSize == null || pageSize < 1) ? 20 : pageSize;
         int offset = (p - 1) * ps;
@@ -39,6 +59,9 @@ public class ForumQuestionService {
         List<ForumQuestion> questions;
         if (topicId != null) {
             questions = questionMapper.findByTopicId(topicId, ps, offset);
+        } else if (favorite != null && favorite && userId != null) {
+            // 收藏的帖子
+            questions = favoriteMapper.findFavoritesByUserId(userId, offset, ps);
         } else if (following != null && following && userId != null) {
             questions = questionMapper.findFollowedByUser(userId, offset, ps);
         } else if (sort != null && (sort.equals("hot") || sort.equals("recommend"))) {
@@ -48,18 +71,21 @@ public class ForumQuestionService {
         }
 
         List<Map<String, Object>> result = new ArrayList<>();
-        for (ForumQuestion q : questions) result.add(toQuestionMap(q));
+        for (ForumQuestion q : questions) {
+            Map<String, Object> m = toQuestionMap(q, userId);
+            result.add(m);
+        }
         return result;
     }
 
-    public Map<String, Object> getQuestionDetail(Long id) {
+    public Map<String, Object> getQuestionDetail(Long id, Long currentUserId) {
         ForumQuestion q = questionMapper.findById(id);
         if (q == null) return null;
 
         try { questionMapper.incrementViewCount(id); } catch (Exception ignore) {}
 
         q = questionMapper.findById(id);
-        return toQuestionMap(q);
+        return toQuestionMap(q, currentUserId);
     }
 
     @Transactional
@@ -107,7 +133,7 @@ public class ForumQuestionService {
         return Map.of("id", q.getId());
     }
 
-    private Map<String, Object> toQuestionMap(ForumQuestion q) {
+    private Map<String, Object> toQuestionMap(ForumQuestion q, Long currentUserId) {
         Map<String, Object> m = new HashMap<>();
         m.put("id", q.getId());
         m.put("title", q.getTitle());
@@ -118,7 +144,19 @@ public class ForumQuestionService {
         m.put("answer_count", q.getAnswerCount() == null ? 0 : q.getAnswerCount());
         m.put("view_count", q.getViewCount() == null ? 0 : q.getViewCount());
         m.put("follow_count", q.getFollowCount() == null ? 0 : q.getFollowCount());
-        m.put("is_followed", false);
+        m.put("vote_count", q.getVoteCount() == null ? 0 : q.getVoteCount());
+        
+        // 收藏状态和数量
+        m.put("favorite_count", favoriteService.getFavoriteCount(q.getId()));
+        if (currentUserId != null) {
+            m.put("is_favorited", favoriteService.isFavorited(q.getId(), currentUserId));
+            m.put("is_followed", questionFollowMapper.exists(currentUserId, q.getId()));
+            m.put("is_voted", questionVoteMapper.exists(currentUserId, q.getId()));
+        } else {
+            m.put("is_favorited", false);
+            m.put("is_followed", false);
+            m.put("is_voted", false);
+        }
 
         List<ForumTopic> topics = questionTopicMapper.findTopicsByQuestionId(q.getId());
         List<Map<String, Object>> topicList = new ArrayList<>();
@@ -135,7 +173,14 @@ public class ForumQuestionService {
             m.put("author", null);
         } else {
             User u = userMapper.findById(q.getAuthorId());
-            m.put("author", toUserMap(u));
+            Map<String, Object> authorMap = toUserMap(u);
+            // 添加作者关注状态
+            if (currentUserId != null && u != null && !currentUserId.equals(u.getId())) {
+                authorMap.put("is_following", userFollowService.isFollowing(currentUserId, u.getId()));
+            } else {
+                authorMap.put("is_following", false);
+            }
+            m.put("author", authorMap);
         }
         return m;
     }
@@ -206,7 +251,31 @@ public class ForumQuestionService {
             }
         }
 
-        return getQuestionDetail(id);
+        return getQuestionDetail(id, userId);
+    }
+    
+    @Transactional
+    public Map<String, Object> voteQuestion(Long questionId, Long userId) {
+        if (questionId == null || userId == null) {
+            throw new IllegalArgumentException("参数不能为空");
+        }
+        
+        boolean exists = questionVoteMapper.exists(userId, questionId);
+        if (exists) {
+            // 已点赞，取消点赞
+            questionVoteMapper.delete(userId, questionId);
+            questionVoteMapper.decrementVoteCount(questionId);
+        } else {
+            // 未点赞，添加点赞
+            questionVoteMapper.insert(userId, questionId);
+            questionVoteMapper.incrementVoteCount(questionId);
+        }
+        
+        ForumQuestion q = questionMapper.findById(questionId);
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("vote_count", q == null || q.getVoteCount() == null ? 0 : q.getVoteCount());
+        resp.put("is_voted", !exists);
+        return resp;
     }
 
     @Transactional
@@ -224,7 +293,7 @@ public class ForumQuestionService {
 
         List<ForumQuestion> questions = questionMapper.searchQuestions(keyword, offset, ps);
         List<Map<String, Object>> result = new ArrayList<>();
-        for (ForumQuestion q : questions) result.add(toQuestionMap(q));
+        for (ForumQuestion q : questions) result.add(toQuestionMap(q, null));
         return result;
     }
 
@@ -235,11 +304,11 @@ public class ForumQuestionService {
 
         List<ForumQuestion> questions = questionMapper.findByAuthorId(userId, offset, ps);
         List<Map<String, Object>> result = new ArrayList<>();
-        for (ForumQuestion q : questions) result.add(toQuestionMap(q));
+        for (ForumQuestion q : questions) result.add(toQuestionMap(q, userId));
         return result;
     }
 
-    public Map<String, Object> getUserInfo(Long userId) {
+    public Map<String, Object> getUserInfo(Long userId, Long currentUserId) {
         User u = userMapper.findById(userId);
         if (u == null) return null;
 
@@ -247,24 +316,47 @@ public class ForumQuestionService {
         m.put("id", u.getId());
         m.put("username", u.getUsername());
         m.put("avatar", u.getAvatar());
-        m.put("bio", null); // User实体暂无bio字段
+        m.put("bio", null);
         m.put("email", u.getEmail());
+        m.put("created_at", u.getCreateTime() == null ? null : u.getCreateTime().toString());
 
         // 统计信息
-        int questionCount = questionMapper.findByAuthorId(userId, 0, Integer.MAX_VALUE).size();
-        m.put("question_count", questionCount);
+        m.put("question_count", userMapper.countQuestionsByUserId(userId));
+        m.put("answer_count", userMapper.countAnswersByUserId(userId));
+        m.put("vote_count", userMapper.sumVoteCountByUserId(userId));
+        m.put("favorite_count", userMapper.countFavoritesByUserId(userId));
+        m.put("follower_count", userFollowService.getFollowerCount(userId));
+        m.put("following_count", userFollowService.getFollowingCount(userId));
+        
+        // 关注状态
+        if (currentUserId != null && !currentUserId.equals(userId)) {
+            m.put("is_following", userFollowService.isFollowing(currentUserId, userId));
+        } else {
+            m.put("is_following", false);
+        }
 
         return m;
     }
 
     public List<Map<String, Object>> getFollowers(Long userId, Integer page, Integer pageSize) {
-        // 简化实现：返回空列表
-        return new ArrayList<>();
+        return userFollowService.getFollowers(userId, page, pageSize);
     }
 
     public List<Map<String, Object>> getFollowing(Long userId, Integer page, Integer pageSize) {
-        // 简化实现：返回空列表
-        return new ArrayList<>();
+        return userFollowService.getFollowing(userId, page, pageSize);
+    }
+    
+    public List<Map<String, Object>> getUserFavorites(Long userId, Integer page, Integer pageSize) {
+        int p = (page == null || page < 1) ? 1 : page;
+        int ps = (pageSize == null || pageSize < 1) ? 20 : pageSize;
+        int offset = (p - 1) * ps;
+        
+        List<ForumQuestion> questions = favoriteMapper.findFavoritesByUserId(userId, offset, ps);
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (ForumQuestion q : questions) {
+            result.add(toQuestionMap(q, userId));
+        }
+        return result;
     }
 
     public Map<String, Object> search(String keyword, String type, String sort, Integer page, Integer pageSize) {
@@ -277,7 +369,7 @@ public class ForumQuestionService {
         if (type == null || type.equals("all") || type.equals("question")) {
             List<ForumQuestion> questions = questionMapper.searchQuestions(keyword, offset, ps);
             List<Map<String, Object>> questionList = new ArrayList<>();
-            for (ForumQuestion q : questions) questionList.add(toQuestionMap(q));
+            for (ForumQuestion q : questions) questionList.add(toQuestionMap(q, null));
             result.put("questions", questionList);
         }
 
@@ -311,14 +403,26 @@ public class ForumQuestionService {
         return new ArrayList<>();
     }
 
-    public List<Map<String, Object>> getMyFollowing(Long userId, Integer page, Integer pageSize) {
+    public Map<String, Object> getMyFollowing(Long userId, Integer page, Integer pageSize) {
         int p = (page == null || page < 1) ? 1 : page;
         int ps = (pageSize == null || pageSize < 1) ? 20 : pageSize;
         int offset = (p - 1) * ps;
 
+        // 关注的问题
         List<ForumQuestion> questions = questionMapper.findFollowedByUser(userId, offset, ps);
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (ForumQuestion q : questions) result.add(toQuestionMap(q));
+        List<Map<String, Object>> questionList = new ArrayList<>();
+        for (ForumQuestion q : questions) questionList.add(toQuestionMap(q, userId));
+        
+        // 关注的用户
+        List<Map<String, Object>> userList = userFollowService.getFollowing(userId, page, pageSize);
+        
+        // 关注的话题
+        List<Map<String, Object>> topicList = topicService.getMyFollowedTopics(userId, page, pageSize);
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("questions", questionList);
+        result.put("users", userList);
+        result.put("topics", topicList);
         return result;
     }
 }

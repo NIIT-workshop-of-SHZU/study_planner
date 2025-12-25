@@ -40,7 +40,17 @@ public class SecurityConfig {
             )
             // 禁用默认登录页面
             .formLogin(form -> form.disable())
-            .httpBasic(basic -> basic.disable());
+            // 完全禁用HTTP基本认证，避免浏览器弹出认证对话框
+            .httpBasic(basic -> basic.disable())
+            // 禁用默认的认证入口点，避免自动添加WWW-Authenticate头
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint((request, response, authException) -> {
+                    // 自定义401响应，不添加WWW-Authenticate头
+                    response.setStatus(401);
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.getWriter().write("{\"code\":401,\"message\":\"未登录或登录已过期\"}");
+                })
+            );
         
         return http.build();
     }

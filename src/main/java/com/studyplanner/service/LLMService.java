@@ -65,13 +65,13 @@ public class LLMService {
     /**
      * 生成学习计划（使用系统默认配置 - 登录用户）
      */
-    public String generateStudyPlan(String goal, String level, double dailyHours, int totalDays, String modelName) {
+    public String generateStudyPlan(String goal, String level, double dailyHours, int totalDays, String modelName, String language) {
         if (mockMode) {
             return generateMockPlan(goal, level, dailyHours, totalDays);
         }
         
         String useModel = (modelName != null && !modelName.isEmpty()) ? modelName : defaultModel;
-        String prompt = buildPlanPrompt(goal, level, dailyHours, totalDays);
+        String prompt = buildPlanPrompt(goal, level, dailyHours, totalDays, language);
         return chat(prompt, defaultBaseUrl, defaultApiKey, useModel);
     }
     
@@ -79,7 +79,7 @@ public class LLMService {
      * 生成学习计划（使用自定义配置 - 游客用户）
      */
     public String generateStudyPlanWithCustomConfig(String goal, String level, double dailyHours, int totalDays,
-                                                     String customBaseUrl, String customApiKey, String customModel) {
+                                                     String customBaseUrl, String customApiKey, String customModel, String language) {
         // 验证自定义配置
         if (customBaseUrl == null || customBaseUrl.isEmpty()) {
             throw new IllegalArgumentException("API URL不能为空");
@@ -91,7 +91,7 @@ public class LLMService {
             throw new IllegalArgumentException("模型名称不能为空");
         }
         
-        String prompt = buildPlanPrompt(goal, level, dailyHours, totalDays);
+        String prompt = buildPlanPrompt(goal, level, dailyHours, totalDays, language);
         return chat(prompt, customBaseUrl, customApiKey, customModel);
     }
     
@@ -227,16 +227,21 @@ public class LLMService {
     /**
      * 构建学习计划生成的Prompt
      */
-    private String buildPlanPrompt(String goal, String level, double dailyHours, int totalDays) {
-        // 检测用户输入是否为纯英文（检测所有输入字段）
-        // 如果goal和level都不包含中文，且至少有一个包含英文，则认为是英文输入
-        boolean goalHasChinese = containsChinese(goal);
-        boolean levelHasChinese = containsChinese(level);
-        boolean goalHasEnglish = containsEnglish(goal);
-        boolean levelHasEnglish = containsEnglish(level);
-        
-        // 如果都不包含中文，且至少有一个包含英文，则认为是英文输入
-        boolean isEnglishInput = !goalHasChinese && !levelHasChinese && (goalHasEnglish || levelHasEnglish);
+    private String buildPlanPrompt(String goal, String level, double dailyHours, int totalDays, String language) {
+        // 根据前端传递的语言设置决定提示词语言
+        // 如果language为null或空，则回退到检测用户输入
+        boolean isEnglishInput;
+        if (language != null && !language.isEmpty()) {
+            // 使用前端传递的语言设置
+            isEnglishInput = "en-US".equalsIgnoreCase(language);
+        } else {
+            // 回退到检测用户输入（兼容旧逻辑）
+            boolean goalHasChinese = containsChinese(goal);
+            boolean levelHasChinese = containsChinese(level);
+            boolean goalHasEnglish = containsEnglish(goal);
+            boolean levelHasEnglish = containsEnglish(level);
+            isEnglishInput = !goalHasChinese && !levelHasChinese && (goalHasEnglish || levelHasEnglish);
+        }
         String languageInstruction = isEnglishInput 
             ? "CRITICAL LANGUAGE REQUIREMENT: The user's input is entirely in English. You MUST generate the ENTIRE study plan in English ONLY. This includes: title, summary, all daily content descriptions, and all resource names. DO NOT use any Chinese characters. If you use Chinese, the response will be considered incorrect. The output language MUST match the input language."
             : "请使用中文生成学习计划。所有内容（标题、摘要、每日学习内容、推荐资源）都必须使用中文。";

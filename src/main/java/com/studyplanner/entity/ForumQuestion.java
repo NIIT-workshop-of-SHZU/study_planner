@@ -51,6 +51,11 @@ public class ForumQuestion {
     private Integer followCount;
 
     /**
+     * 点赞数
+     */
+    private Integer voteCount;
+
+    /**
      * 创建时间（create_time）
      */
     private LocalDateTime createTime;

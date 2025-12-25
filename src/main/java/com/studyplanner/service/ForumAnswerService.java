@@ -4,6 +4,7 @@ import com.studyplanner.entity.ForumAnswer;
 import com.studyplanner.entity.User;
 import com.studyplanner.mapper.UserMapper;
 import com.studyplanner.mapper.forum.ForumAnswerMapper;
+import com.studyplanner.mapper.forum.ForumAnswerCollectMapper;
 import com.studyplanner.mapper.forum.ForumQuestionMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -22,15 +23,21 @@ public class ForumAnswerService {
 
     @Autowired
     private UserMapper userMapper;
+    
+    @Autowired
+    private ForumAnswerCollectMapper answerCollectMapper;
+    
+    @Autowired
+    private com.studyplanner.mapper.forum.ForumAnswerVoteMapper answerVoteMapper;
 
-    public List<Map<String, Object>> listAnswers(Long questionId, Integer page, Integer pageSize, String sort) {
+    public List<Map<String, Object>> listAnswers(Long questionId, Integer page, Integer pageSize, String sort, Long userId) {
         int p = (page == null || page < 1) ? 1 : page;
         int ps = (pageSize == null || pageSize < 1) ? 20 : pageSize;
         int offset = (p - 1) * ps;
 
         List<ForumAnswer> answers = answerMapper.findByQuestionId(questionId, sort, offset, ps);
         List<Map<String, Object>> result = new ArrayList<>();
-        for (ForumAnswer a : answers) result.add(toAnswerMap(a));
+        for (ForumAnswer a : answers) result.add(toAnswerMap(a, userId));
         return result;
     }
 
@@ -53,19 +60,50 @@ public class ForumAnswerService {
         return Map.of("id", a.getId());
     }
 
-    public Map<String, Object> voteAnswer(Long id) {
-        answerMapper.incrementVoteCount(id);
+    @Transactional
+    public Map<String, Object> voteAnswer(Long id, Long userId) {
+        if (id == null || userId == null) {
+            throw new IllegalArgumentException("参数不能为空");
+        }
+        
+        boolean exists = answerVoteMapper.exists(userId, id);
+        if (exists) {
+            // 已点赞，取消点赞
+            answerVoteMapper.delete(userId, id);
+            answerVoteMapper.decrementVoteCount(id);
+        } else {
+            // 未点赞，添加点赞
+            answerVoteMapper.insert(userId, id);
+            answerVoteMapper.incrementVoteCount(id);
+        }
+        
         ForumAnswer a = answerMapper.findById(id);
-
         Map<String, Object> resp = new HashMap<>();
         resp.put("vote_count", a == null || a.getVoteCount() == null ? 0 : a.getVoteCount());
-        resp.put("is_voted", true);
+        resp.put("is_voted", !exists);
         return resp;
     }
 
-    // Phase3 最小：先不落库收藏（后续用 forum_answer_collect 表实现）
-    public Map<String, Object> collectAnswer(Long id) {
-        return Map.of("is_collected", true);
+    @Transactional
+    public Map<String, Object> collectAnswer(Long id, Long userId) {
+        if (id == null || userId == null) {
+            throw new IllegalArgumentException("参数不能为空");
+        }
+        
+        boolean exists = answerCollectMapper.exists(userId, id);
+        if (exists) {
+            // 已收藏，取消收藏
+            answerCollectMapper.delete(userId, id);
+            Map<String, Object> resp = new HashMap<>();
+            resp.put("is_collected", false);
+            return resp;
+        } else {
+            // 未收藏，添加收藏
+            answerCollectMapper.insert(userId, id);
+            Map<String, Object> resp = new HashMap<>();
+            resp.put("is_collected", true);
+            return resp;
+        }
     }
 
     @Transactional
@@ -79,7 +117,7 @@ public class ForumAnswerService {
 
         answerMapper.update(id, userId, content.trim());
         a = answerMapper.findById(id);
-        return toAnswerMap(a);
+        return toAnswerMap(a, userId);
     }
 
     @Transactional
@@ -97,10 +135,10 @@ public class ForumAnswerService {
         } catch (Exception ignore) {}
     }
 
-    public Map<String, Object> getAnswerDetail(Long id) {
+    public Map<String, Object> getAnswerDetail(Long id, Long userId) {
         ForumAnswer a = answerMapper.findById(id);
         if (a == null) return null;
-        return toAnswerMap(a);
+        return toAnswerMap(a, userId);
     }
 
     public List<Map<String, Object>> getUserAnswers(Long userId, Integer page, Integer pageSize) {
@@ -110,16 +148,22 @@ public class ForumAnswerService {
 
         List<ForumAnswer> answers = answerMapper.findByAuthorId(userId, offset, ps);
         List<Map<String, Object>> result = new ArrayList<>();
-        for (ForumAnswer a : answers) result.add(toAnswerMap(a));
+        for (ForumAnswer a : answers) result.add(toAnswerMap(a, userId));
         return result;
     }
 
     public List<Map<String, Object>> getUserCollections(Long userId, Integer page, Integer pageSize) {
-        // 简化实现：返回空列表（需要实现收藏表查询）
-        return new ArrayList<>();
+        int p = (page == null || page < 1) ? 1 : page;
+        int ps = (pageSize == null || pageSize < 1) ? 20 : pageSize;
+        int offset = (p - 1) * ps;
+        
+        List<ForumAnswer> answers = answerCollectMapper.findByUserId(userId, offset, ps);
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (ForumAnswer a : answers) result.add(toAnswerMap(a, userId));
+        return result;
     }
 
-    private Map<String, Object> toAnswerMap(ForumAnswer a) {
+    private Map<String, Object> toAnswerMap(ForumAnswer a, Long userId) {
         Map<String, Object> m = new HashMap<>();
         m.put("id", a.getId());
         m.put("question_id", a.getQuestionId());
@@ -129,12 +173,22 @@ public class ForumAnswerService {
         m.put("updated_at", a.getUpdateTime() == null ? null : a.getUpdateTime().toString());
         m.put("vote_count", a.getVoteCount() == null ? 0 : a.getVoteCount());
         m.put("comment_count", a.getCommentCount() == null ? 0 : a.getCommentCount());
-        m.put("is_voted", false);
+        
+        // 检查用户是否已点赞
+        if (userId != null) {
+            m.put("is_voted", answerVoteMapper.exists(userId, a.getId()));
+        } else {
+            m.put("is_voted", false);
+        }
         m.put("is_collected", false);
 
         User u = userMapper.findById(a.getAuthorId());
         m.put("author", toUserMap(u));
         return m;
+    }
+    
+    private Map<String, Object> toAnswerMap(ForumAnswer a) {
+        return toAnswerMap(a, null);
     }
 
     private Map<String, Object> toUserMap(User u) {
